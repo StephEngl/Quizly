@@ -9,5 +9,6 @@ db.sqlite3
 infos.txt
 
 # __pycache__ und andere temporäre Dateien
-__pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
