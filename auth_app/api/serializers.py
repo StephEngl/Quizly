@@ -39,11 +39,9 @@ class RegistrationSerializer(serializers.ModelSerializer):
 User = get_user_model()
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    # email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        # email = attrs.get('email')
         username = attrs.get('username')
         password = attrs.get('password')
 
