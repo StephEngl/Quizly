@@ -38,4 +38,26 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 User = get_user_model()
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    # email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
 
+    def validate(self, attrs):
+        # email = attrs.get('email')
+        username = attrs.get('username')
+        password = attrs.get('password')
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "No user found with this username.")
+
+        if not user.check_password(password):
+            raise serializers.ValidationError("Incorrect password.")
+
+        data = super().validate({
+            'username': user.username,
+            'password': password
+        })
+        return data
