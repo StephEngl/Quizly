@@ -1,5 +1,3 @@
-from django.contrib.auth import get_user_model
-
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -31,9 +29,6 @@ class RegistrationView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-User = get_user_model()
-
-
 @extend_schema(
     tags=['Authentication'],
     description="Obtain JWT tokens and set them in HttpOnly cookies.",
@@ -50,20 +45,17 @@ class CookieTokenObtainPairView(TokenObtainPairView):
         serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
-            refresh = serializer.validated_data.get('refresh')
-            access = serializer.validated_data.get('access')
+            validated_data = serializer.validated_data
+            refresh = validated_data['refresh']
+            access = validated_data['access']
 
-            username = serializer.validated_data.get(
-                'username') or request.data.get('username')
-            try:
-                user_obj = User.objects.get(username=username)
-                user_data = {
-                    "id": user_obj.pk,
-                    "username": user_obj.username,
-                    "email": user_obj.email,
-                }
-            except User.DoesNotExist:
-                return Response({'error': 'User not found'}, status=status.HTTP_401_UNAUTHORIZED)
+            user = serializer.user
+
+            user_data = {
+                "id": user.pk,
+                "username": user.username,
+                "email": user.email,
+            }
 
             data = {
                 'detail': 'Login successfully!',
@@ -75,7 +67,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
                 key='refresh_token',
                 value=str(refresh),
                 httponly=True,
-                secure=True,
+                secure=False,  # False for development
                 samesite='Lax',
             )
 
@@ -83,7 +75,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
                 key='access_token',
                 value=str(access),
                 httponly=True,
-                secure=True,
+                secure=False,  # False for development
                 samesite='Lax',
             )
 
@@ -104,7 +96,7 @@ class CookieTokenRefreshView(TokenRefreshView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        data ={}
+        data = {}
         refresh_token = request.COOKIES.get("refresh_token")
 
         if refresh_token is None:
@@ -148,15 +140,15 @@ class LogoutView(APIView):
     def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
         access_token = request.COOKIES.get("access_token")
-        
+
         if not refresh_token and not access_token:
             return Response(
-                {"error": "User is not logged in. No tokens found."}, 
+                {"error": "User is not logged in. No tokens found."},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        
+
         response = Response(
-            {"detail": "Log-Out successfully! All Tokens will be deleted. Refresh token is now invalid."}, 
+            {"detail": "Log-Out successfully! All Tokens will be deleted. Refresh token is now invalid."},
             status=status.HTTP_200_OK
         )
         response.delete_cookie('refresh_token')
