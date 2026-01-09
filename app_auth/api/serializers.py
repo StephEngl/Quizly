@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from django.contrib.auth import get_user_model
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -36,29 +35,10 @@ class RegistrationSerializer(serializers.ModelSerializer):
         return account
 
 
-User = get_user_model()
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    password = serializers.CharField(write_only=True)
-
     def validate(self, attrs):
-        username = attrs.get('username')
-        password = attrs.get('password')
-
         try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("No user found with this username.")
-
-        if not user.check_password(password):
-            raise serializers.ValidationError("Incorrect password.")
-
-        # Standard JWT Token-Generierung verwenden
-        data = super().validate({
-            'username': user.username,
-            'password': password
-        })
-        
-        # Debug: User-Objekt in den Token-Daten verfügbar machen
-        data['user'] = user
-        return data
+            data = super().validate(attrs)
+            return data
+        except Exception:
+            raise serializers.ValidationError("Incorrect username or password.")
