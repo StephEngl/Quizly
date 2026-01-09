@@ -48,14 +48,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                "No user found with this username.")
+            raise serializers.ValidationError("No user found with this username.")
 
         if not user.check_password(password):
             raise serializers.ValidationError("Incorrect password.")
 
+        # Standard JWT Token-Generierung verwenden
         data = super().validate({
             'username': user.username,
             'password': password
         })
+        
+        # Debug: User-Objekt in den Token-Daten verfügbar machen
+        data['user'] = user
         return data
