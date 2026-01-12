@@ -6,6 +6,6 @@ router = DefaultRouter()
 router.register(r"quizzes", QuizViewSet, basename="quiz")
 
 urlpatterns = [
-    path("api/createQuiz/", CreateQuizFromUrlView.as_view(), name="create_quiz_from_url"),
-    path("api/", include(router.urls)),
+    path("createQuiz/", CreateQuizFromUrlView.as_view(), name="create_quiz_from_url"),
+    path("", include(router.urls)),
 ]
