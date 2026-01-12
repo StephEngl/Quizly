@@ -65,9 +65,30 @@ class QuizViewSet(viewsets.ModelViewSet):
     queryset = Quiz.objects.all().prefetch_related("questions")
     serializer_class = QuizSerializer
     permission_classes = [IsAuthenticated, IsQuizOwner]
+    http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
+    @extend_schema(exclude=True)
     def create(self, request, *args, **kwargs):
+        """
+        Disable CREATE detail endpoint.
+        """
         return MethodNotAllowed("CREATE")
+    
+    @extend_schema(
+        responses={
+            200: QuizSerializer(many=True),
+            401: OpenApiResponse(description="User is unauthorized"),
+        }
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
+    @extend_schema(exclude=True)
+    def update(self, request, *args, **kwargs):
+        """
+        Disable UPDATE detail endpoint.
+        """
+        return MethodNotAllowed("UPDATE")
     
     @extend_schema(
         responses={
