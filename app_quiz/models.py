@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.auth.models import User
 
 
 class Quiz(models.Model):
@@ -20,7 +19,7 @@ class Quiz(models.Model):
 class Question(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
     question_title = models.TextField()
-    question_options = models.JSONField()  # List of strings: ["Option A", "Option B", ...]
+    question_options = models.JSONField()
     answer = models.CharField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
