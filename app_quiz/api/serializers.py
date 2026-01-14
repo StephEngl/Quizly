@@ -22,5 +22,5 @@ class CreateQuizQuestionSerializer(serializers.Serializer):
         fields = ['id', 'question_title', 'question_options', 'answer', 'created_at', 'updated_at']
 
 
-class CreateQuizFromUrlSerializer(QuizSerializer):
-    questions = CreateQuizQuestionSerializer(many=True, read_only=True)
+class CreateQuizFromUrlSerializer(serializers.Serializer):
+    url = serializers.URLField(help_text="YouTube URL to create quiz from")
