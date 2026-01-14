@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from ..models import Quiz
 from .permissions import IsQuizOwner
 from .serializers import QuizSerializer, CreateQuizFromUrlSerializer
-from .utils import normalize_youtube_url, validate_youtube_url, download_youtube_audio
+from .utils import download_and_transcribe
 
 @extend_schema(
     tags=['Quiz Management'],
@@ -28,30 +28,24 @@ class CreateQuizFromUrlView(APIView):
         video_url = serializer.validated_data["url"]
 
         try:
-            # Normalize YouTube URL to standard format
-            normalized_url = normalize_youtube_url(video_url)
+            # Download audio and transcribe with Whisper (yt-dlp handles URL normalization)
+            transcript, video_title = download_and_transcribe(video_url)
             
-            # Download audio file and get video title
-            audio_file_path, video_title = download_youtube_audio(normalized_url)
-            
-            # For testing: return info about the downloaded audio
+            # For testing: return transcript and video info
             return Response({
-                "message": "Audio successfully downloaded",
+                "message": "Video successfully transcribed",
                 "video_title": video_title,
-                "audio_file": audio_file_path,
-                "normalized_url": normalized_url
+                "transcript": transcript,
+                "url": video_url
             }, status=status.HTTP_200_OK)
             
-        except ValueError as e:
-            raise ValidationError({"url": f"Invalid YouTube URL: {str(e)}"})
-        except RuntimeError as e:
-            raise ValidationError({"url": f"Audio download failed: {str(e)}"})
+        except RuntimeError as error:
+            raise ValidationError({"url": f"Processing failed: {str(error)}"})
 
-        # TODO: Next steps after successful audio download:
-        # 1) Whisper → Transkript aus audio_file_path
-        # 2) Gemini → Fragen + Antworten generieren
-        # 3) Quiz + Questions in DB speichern
-        # 4) Cleanup: os.remove(audio_file_path)
+        # TODO: Next steps after successful transcription:
+        # 1) Gemini → Fragen + Antworten aus transcript generieren
+        # 2) Quiz + Questions in DB speichern
+        # 3) Cleanup: os.remove(audio_file_path)
 
         # quiz = ...  # erstelltes Quiz-Objekt
         # return Response(QuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
