@@ -1,171 +1,75 @@
 import os
-import re
-import tempfile
-import uuid
-from pathlib import Path
-from urllib.parse import urlparse, parse_qs
-
 import yt_dlp
+import whisper
 
 
-def normalize_youtube_url(url):
+def download_and_transcribe(url, media_root="media"):
     """
-    Normalizes YouTube URLs to the standard format: https://www.youtube.com/watch?v=VIDEO_ID
-    
-    Supports formats:
-    - https://www.youtube.com/watch?v=TxHM390wrRk
-    - https://youtu.be/TxHM390wrRk
-    - https://youtu.be/TxHM390wrRk?si=MQFw2eEIvF4LeD3S
-    - https://youtube.com/watch?v=TxHM390wrRk
-    - https://m.youtube.com/watch?v=TxHM390wrRk
-    
+    Download audio from a YouTube video and transcribe it to text.
+
+    This function:
+    - Downloads the audio from the provided YouTube URL as VIDEO_ID.m4a/mp3/webm
+    - Uses the Whisper 'tiny' model to transcribe the audio into text
+    - Deletes the audio file after transcription
+    - Returns both transcript and video title
+
     Args:
-        url (str): The YouTube URL to normalize
-        
+        url (str): The URL of the YouTube video
+        media_root (str): Directory to save temporary audio files (default: "media")
+
     Returns:
-        str: Normalized YouTube URL in format https://www.youtube.com/watch?v=VIDEO_ID
-        
+        tuple: (transcript_text, video_title)
+
     Raises:
-        ValueError: If the URL is not a valid YouTube URL or video ID cannot be extracted
+        yt_dlp.utils.DownloadError: If the video cannot be downloaded
+        RuntimeError: If transcription fails
     """
-    if not url or not isinstance(url, str):
-        raise ValueError("URL must be a non-empty string")
     
-    # Remove any whitespace
-    url = url.strip()
+    # Create media folder if not existing
+    os.makedirs(media_root, exist_ok=True)
     
-    # Extract video ID using regex patterns
-    video_id = None
-    
-    # Pattern 1: youtu.be/VIDEO_ID (short format)
-    short_pattern = r'(?:https?://)?(?:www\.)?youtu\.be/([a-zA-Z0-9_-]{11})'
-    match = re.search(short_pattern, url)
-    if match:
-        video_id = match.group(1)
-    
-    # Pattern 2: youtube.com/watch?v=VIDEO_ID (standard format)
-    if not video_id:
-        long_pattern = r'(?:https?://)?(?:www\.|m\.)?youtube\.com/watch\?.*v=([a-zA-Z0-9_-]{11})'
-        match = re.search(long_pattern, url)
-        if match:
-            video_id = match.group(1)
-    
-    # Pattern 3: Try to extract from URL parameters
-    if not video_id:
-        try:
-            parsed_url = urlparse(url)
-            if 'youtube.com' in parsed_url.netloc:
-                query_params = parse_qs(parsed_url.query)
-                if 'v' in query_params:
-                    potential_id = query_params['v'][0]
-                    if len(potential_id) == 11:
-                        video_id = potential_id
-        except:
-            pass
-    
-    if not video_id:
-        raise ValueError(f"Could not extract video ID from URL: {url}")
-    
-    # Validate video ID format (YouTube video IDs are 11 characters)
-    if not re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
-        raise ValueError(f"Invalid YouTube video ID format: {video_id}")
-    
-    return f"https://www.youtube.com/watch?v={video_id}"
-
-
-def extract_video_id(url):
-    """
-    Extracts just the video ID from a YouTube URL
-    
-    Args:
-        url (str): The YouTube URL
-        
-    Returns:
-        str: The 11-character video ID
-        
-    Raises:
-        ValueError: If video ID cannot be extracted
-    """
-    normalized_url = normalize_youtube_url(url)
-    return normalized_url.split('v=')[1]
-
-
-def validate_youtube_url(url):
-    """
-    Validates if a URL is a valid YouTube URL
-    
-    Args:
-        url (str): The URL to validate
-        
-    Returns:
-        bool: True if valid YouTube URL, False otherwise
-    """
-    try:
-        normalize_youtube_url(url)
-        return True
-    except ValueError:
-        return False
-
-
-def download_youtube_audio(url, output_dir=None):
-    """
-    Downloads audio from a YouTube video using yt-dlp
-    
-    Args:
-        url (str): The YouTube URL to download audio from
-        output_dir (str, optional): Directory to save the audio file. 
-                                If None, uses system temp directory.
-    
-    Returns:
-        tuple: (audio_file_path, video_title)
-        
-    Raises:
-        ValueError: If the URL is invalid or download fails
-        RuntimeError: If yt-dlp fails to download the audio
-    """
-    # Normalize the URL first
-    normalized_url = normalize_youtube_url(url)
-    
-    # Create output directory if not specified
-    if output_dir is None:
-        output_dir = tempfile.gettempdir()
-    else:
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-    
-    # Generate unique filename to avoid conflicts
-    unique_id = str(uuid.uuid4())[:8]
-    tmp_filename = os.path.join(output_dir, f"audio_{unique_id}.%(ext)s")
-    
+    # yt-dlp options - elegant and automatic
     ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": tmp_filename,
+        'format': 'm4a/bestaudio/best',  # Try m4a first, fallback to best audio
         "quiet": True,
         "noplaylist": True,
+        'outtmpl': os.path.join(media_root, '%(id)s.%(ext)s'),  # Save as VIDEO_ID.ext
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept-Language': 'en-US,en;q=0.8',
+            'Accept': '*/*',
+            'Referer': 'https://www.youtube.com/',
+            'Origin': 'https://www.youtube.com'
+        },
     }
+    
+    audio_filename = None
+    transcript = ""
+    video_title = ""
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Extract info first to get the title and download
-            info = ydl.extract_info(normalized_url, download=False)
-            if not info:
-                raise RuntimeError("Could not extract video information")
+            # Extract info and download in one step
+            info = ydl.extract_info(url, download=True)  # yt-dlp handles URL normalization!
             
+            # Get the exact filename that yt-dlp created
+            audio_filename = ydl.prepare_filename(info)
+            
+            # Get video title from info
             video_title = info.get("title", "Untitled Video")
             
-            # Download the audio
-            ydl.download([normalized_url])
-            
-            # Find the downloaded file
-            # yt-dlp replaces %(ext)s with the actual extension
-            base_filename = tmp_filename.replace(".%(ext)s", "")
-            for ext in ['.webm', '.m4a', '.mp3', '.wav', '.ogg']:
-                potential_file = f"{base_filename}{ext}"
-                if os.path.exists(potential_file):
-                    return potential_file, video_title
-            
-            raise RuntimeError("Downloaded audio file not found")
-            
-    except yt_dlp.DownloadError as e:
-        raise RuntimeError(f"yt-dlp download failed: {str(e)}")
-    except Exception as e:
-        raise RuntimeError(f"Unexpected error during audio download: {str(e)}")
+            # Load Whisper model and transcribe
+            model = whisper.load_model("tiny")
+            result = model.transcribe(audio_filename)
+            transcript = result["text"].strip()
+
+    except yt_dlp.DownloadError as error:
+        raise RuntimeError(f"yt-dlp download failed: {str(error)}")
+    except Exception as error:
+        raise RuntimeError(f"Unexpected error: {str(error)}")
+    finally:
+        # Always cleanup audio file after transcription
+        if audio_filename and os.path.exists(audio_filename):
+            os.remove(audio_filename)
+    
+    return transcript, video_title
