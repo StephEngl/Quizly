@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import BasePermission
 
 
 class IsQuizOwner(BasePermission):
@@ -8,5 +8,9 @@ class IsQuizOwner(BasePermission):
     """
     message = "Only the quiz owner may edit or delete this quiz."
 
+    def has_permission(self, request, view):
+        """Allow authenticated users to access list view"""
+        return request.user.is_authenticated
+    
     def has_object_permission(self, request, view, obj):
         return obj.owner == request.user
