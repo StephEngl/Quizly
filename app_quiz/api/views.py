@@ -5,14 +5,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import Quiz
+from app_auth.api.views import CookieJWTAuthentication
+from ..models import Quiz, Question
 from .permissions import IsQuizOwner
 from .serializers import QuizSerializer, CreateQuizFromUrlSerializer
-from .utils import download_and_transcribe
+from .utils import download_and_transcribe, generate_quiz_from_transcript
 
 @extend_schema(
     tags=['Quiz Management'],
-    description="Create a quiz from a video URL.",
+    description="Create a quiz from a youtube video URL.",
     responses={
         201: QuizSerializer,
         400: OpenApiResponse(description="Bad Request - Invalid URL or processing error"),
@@ -20,6 +21,7 @@ from .utils import download_and_transcribe
     }
 )
 class CreateQuizFromUrlView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -31,24 +33,31 @@ class CreateQuizFromUrlView(APIView):
             # Download audio and transcribe with Whisper (yt-dlp handles URL normalization)
             transcript, video_title = download_and_transcribe(video_url)
             
-            # For testing: return transcript and video info
-            return Response({
-                "message": "Video successfully transcribed",
-                "video_title": video_title,
-                "transcript": transcript,
-                "url": video_url
-            }, status=status.HTTP_200_OK)
+            # 2) Generate quiz from transcript using Gemini
+            quiz_data = generate_quiz_from_transcript(transcript)
+            
+            # 3) Create Quiz in database
+            quiz = Quiz.objects.create(
+                owner=request.user,
+                title=quiz_data["title"],
+                description=quiz_data["description"],
+                video_url=video_url
+            )
+            
+            # 4) Create Questions in database
+            for question_data in quiz_data["questions"]:
+                Question.objects.create(
+                    quiz=quiz,
+                    question_title=question_data["question_title"],
+                    question_options=question_data["question_options"],
+                    answer=question_data["answer"]
+                )
+            
+            # 5) Return complete quiz with questions
+            return Response(QuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
             
         except RuntimeError as error:
-            raise ValidationError({"url": f"Processing failed: {str(error)}"})
-
-        # TODO: Next steps after successful transcription:
-        # 1) Gemini → Fragen + Antworten aus transcript generieren
-        # 2) Quiz + Questions in DB speichern
-        # 3) Cleanup: os.remove(audio_file_path)
-
-        # quiz = ...  # erstelltes Quiz-Objekt
-        # return Response(QuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
+            raise ValidationError({"error": f"Processing failed: {str(error)}"})
 
 
 @extend_schema(
@@ -56,10 +65,14 @@ class CreateQuizFromUrlView(APIView):
     description="Manage quizzes created by users.",
 )
 class QuizViewSet(viewsets.ModelViewSet):
-    queryset = Quiz.objects.all().prefetch_related("questions")
     serializer_class = QuizSerializer
     permission_classes = [IsAuthenticated, IsQuizOwner]
+    authentication_classes = [CookieJWTAuthentication]
     http_method_names = ['get', 'patch', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        """Only return quizzes owned by the current user"""
+        return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
 
     @extend_schema(exclude=True)
     def create(self, request, *args, **kwargs):
