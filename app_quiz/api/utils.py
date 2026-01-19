@@ -1,6 +1,9 @@
 import os
+import re
+import json
 import yt_dlp
 import whisper
+from google import genai
 
 
 def download_and_transcribe(url, media_root="media"):
@@ -24,16 +27,17 @@ def download_and_transcribe(url, media_root="media"):
         yt_dlp.utils.DownloadError: If the video cannot be downloaded
         RuntimeError: If transcription fails
     """
-    
+
     # Create media folder if not existing
     os.makedirs(media_root, exist_ok=True)
-    
+
     # yt-dlp options - elegant and automatic
     ydl_opts = {
         'format': 'm4a/bestaudio/best',  # Try m4a first, fallback to best audio
         "quiet": True,
         "noplaylist": True,
-        'outtmpl': os.path.join(media_root, '%(id)s.%(ext)s'),  # Save as VIDEO_ID.ext
+        # Save as VIDEO_ID.ext
+        'outtmpl': os.path.join(media_root, '%(id)s.%(ext)s'),
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept-Language': 'en-US,en;q=0.8',
@@ -42,22 +46,23 @@ def download_and_transcribe(url, media_root="media"):
             'Origin': 'https://www.youtube.com'
         },
     }
-    
+
     audio_filename = None
     transcript = ""
     video_title = ""
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             # Extract info and download in one step
-            info = ydl.extract_info(url, download=True)  # yt-dlp handles URL normalization!
-            
+            # yt-dlp handles URL normalization!
+            info = ydl.extract_info(url, download=True)
+
             # Get the exact filename that yt-dlp created
             audio_filename = ydl.prepare_filename(info)
-            
+
             # Get video title from info
             video_title = info.get("title", "Untitled Video")
-            
+
             # Load Whisper model and transcribe
             model = whisper.load_model("tiny")
             result = model.transcribe(audio_filename)
@@ -71,5 +76,67 @@ def download_and_transcribe(url, media_root="media"):
         # Always cleanup audio file after transcription
         if audio_filename and os.path.exists(audio_filename):
             os.remove(audio_filename)
-    
+
     return transcript, video_title
+
+
+def generate_quiz_from_transcript(transcript):
+    """
+    Generate a quiz from a transcript using Gemini AI.
+
+    Args:
+        transcript (str): The transcribed text from a video.
+
+    Returns:
+        dict: Python dictionary containing the quiz data
+
+    Raises:
+        RuntimeError: If Gemini API fails or JSON parsing fails
+    """
+
+    prompt = """Based on the following transcript, generate a quiz in valid JSON format.
+
+The quiz must follow this exact structure:
+
+{
+    "title": "Create a concise quiz title based on the topic of the transcript.",
+    "description": "Summarize the transcript in no more than 150 characters. Do not include any quiz questions or answers.",
+    "questions": [
+        {
+        "question_title": "The question goes here.",
+        "question_options": ["Option A", "Option B", "Option C", "Option D"],
+        "answer": "The correct answer from the above options"
+        },
+        ...
+        (exactly 10 questions)
+    ]
+}
+
+Requirements:
+- Each question must have exactly 4 distinct answer options.
+- Only one correct answer is allowed per question, and it must be present in 'question_options'.
+- The output must be valid JSON and parsable as-is (e.g., using Python's json.loads).
+- Do not include explanations, comments, or any text outside the JSON."""
+
+    try:
+        # The client gets the API key from the environment variable `GEMINI_API_KEY`.
+        client = genai.Client()
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=[prompt, transcript]
+        )
+
+        # Extract the response text
+        response_text = response.candidates[0].content.parts[0].text
+
+        # Clean up potential code blocks (```json ... ```)
+        cleaned_json = re.sub(r"^```(?:json)?|```$", "",
+                        response_text, flags=re.DOTALL).strip()
+
+        # Parse JSON to Python dictionary
+        quiz_data = json.loads(cleaned_json)
+        return quiz_data
+
+    except Exception as error:
+        raise RuntimeError(f"Gemini API failed: {str(error)}")
