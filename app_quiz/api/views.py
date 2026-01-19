@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from app_auth.api.views import CookieJWTAuthentication
 from ..models import Quiz, Question
 from .permissions import IsQuizOwner
-from .serializers import QuizSerializer, CreateQuizFromUrlSerializer
+from .serializers import QuizSerializer, CreateQuizFromUrlSerializer, CreateQuizSerializer
 from .utils import download_and_transcribe, generate_quiz_from_transcript
 
 @extend_schema(
@@ -54,7 +54,7 @@ class CreateQuizFromUrlView(APIView):
                 )
             
             # 5) Return complete quiz with questions
-            return Response(QuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
+            return Response(CreateQuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
             
         except RuntimeError as error:
             raise ValidationError({"error": f"Processing failed: {str(error)}"})
@@ -90,12 +90,16 @@ class QuizViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
     
-    @extend_schema(exclude=True)
-    def update(self, request, *args, **kwargs):
-        """
-        Disable UPDATE detail endpoint.
-        """
-        return MethodNotAllowed("UPDATE")
+    @extend_schema(
+        responses={
+            200: QuizSerializer,
+            401: OpenApiResponse(description="User is unauthorized"),
+            403: OpenApiResponse(description="User is not the quiz owner"),
+            404: OpenApiResponse(description="Quiz not Found"),
+        }
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
     
     @extend_schema(
         responses={
@@ -108,6 +112,7 @@ class QuizViewSet(viewsets.ModelViewSet):
     )
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
+    
 
     @extend_schema(
         responses={
