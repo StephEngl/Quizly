@@ -10,7 +10,11 @@ from .serializers import RegistrationSerializer, CustomTokenObtainPairSerializer
 
 
 class CookieJWTAuthentication(JWTAuthentication):
-    """Authenticate user via JWT stored in cookies."""
+    """Custom JWT authentication using HttpOnly cookies.
+    
+    Extracts JWT access token from request cookies instead of
+    Authorization header for improved security.
+    """
     def authenticate(self, request):
         access_token = request.COOKIES.get("access_token")
         if not access_token:
@@ -32,6 +36,11 @@ class CookieJWTAuthentication(JWTAuthentication):
     }
 )
 class RegistrationView(APIView):
+    """API view for user registration.
+    
+    Validates user input, creates new user account with unique
+    email and matching password confirmation.
+    """
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -53,6 +62,11 @@ class RegistrationView(APIView):
     }
 )
 class CookieTokenObtainPairView(TokenObtainPairView):
+    """API view for user authentication with cookie-based tokens.
+    
+    Validates user credentials and sets JWT tokens in secure
+    HttpOnly cookies for enhanced security.
+    """
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [AllowAny]
 
@@ -108,6 +122,11 @@ class CookieTokenObtainPairView(TokenObtainPairView):
     }
 )
 class CookieTokenRefreshView(TokenRefreshView):
+    """API view for refreshing JWT access tokens.
+    
+    Uses refresh token from HttpOnly cookies to generate new
+    access token when the current one expires.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -150,6 +169,11 @@ class CookieTokenRefreshView(TokenRefreshView):
     }
 )
 class LogoutView(APIView):
+    """API view for user logout.
+    
+    Clears JWT tokens from HttpOnly cookies to securely
+    log out the authenticated user.
+    """
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
