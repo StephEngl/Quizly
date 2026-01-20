@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class RegistrationSerializer(serializers.ModelSerializer):
+    """User registration with password confirmation."""
     confirmed_password = serializers.CharField(write_only=True)
 
     class Meta:
@@ -37,6 +38,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """JWT token serializer with custom error handling."""
+    
     def validate(self, attrs):
         try:
             data = super().validate(attrs)
