@@ -4,28 +4,26 @@ import json
 import yt_dlp
 import whisper
 from google import genai
+from django.db import transaction
+from rest_framework.exceptions import ValidationError
+
+from ..models import Quiz, Question
 
 
 def download_and_transcribe(url, media_root="media"):
-    """
-    Download audio from a YouTube video and transcribe it to text.
+    """Download and transcribe audio from a YouTube video.
 
-    This function:
-    - Downloads the audio from the provided YouTube URL as VIDEO_ID.m4a/mp3/webm
-    - Uses the Whisper 'tiny' model to transcribe the audio into text
-    - Deletes the audio file after transcription
-    - Returns both transcript and video title
+    Downloads audio from the provided YouTube URL and uses Whisper
+    to transcribe it to text. Cleans up temporary files after processing.
 
     Args:
-        url (str): The URL of the YouTube video
-        media_root (str): Directory to save temporary audio files (default: "media")
+        media_root (str): Directory for temporary audio files. Defaults to "media".
 
     Returns:
         tuple: (transcript_text, video_title)
 
     Raises:
-        yt_dlp.utils.DownloadError: If the video cannot be downloaded
-        RuntimeError: If transcription fails
+        RuntimeError: If download or transcription fails.
     """
 
     # Create media folder if not existing
@@ -81,17 +79,13 @@ def download_and_transcribe(url, media_root="media"):
 
 
 def generate_quiz_from_transcript(transcript):
-    """
-    Generate a quiz from a transcript using Gemini AI.
-
-    Args:
-        transcript (str): The transcribed text from a video.
+    """Generate a quiz from transcript using Gemini AI.
 
     Returns:
-        dict: Python dictionary containing the quiz data
+        dict: Quiz data containing title, description, and questions.
 
     Raises:
-        RuntimeError: If Gemini API fails or JSON parsing fails
+        RuntimeError: If Gemini API fails or JSON parsing fails.
     """
 
     prompt = """Based on the following transcript, generate a quiz in valid JSON format.
@@ -140,3 +134,59 @@ Requirements:
 
     except Exception as error:
         raise RuntimeError(f"Gemini API failed: {str(error)}")
+
+
+def check_for_duplicate_quiz(user, video_url, video_title):
+    """Check if user already has a quiz from this video.
+        
+    Raises:
+        ValidationError: If duplicate quiz exists.
+    """
+    existing_quiz = Quiz.objects.filter(
+        owner=user,
+        video_url=video_url
+    ).first()
+    
+    if existing_quiz:
+        raise ValidationError({
+            "error": f"You already have a quiz from this video: '{video_title}'"
+        })
+
+
+@transaction.atomic
+def create_quiz_from_transcript(user, transcript, video_url):
+    """Generate and create quiz with questions in database.
+    
+    Uses Gemini AI to generate quiz data, then creates Quiz and
+    Question objects atomically.
+        
+    Returns:
+        Quiz: The created quiz instance with questions.
+    """
+    # Generate quiz data using Gemini
+    quiz_data = generate_quiz_from_transcript(transcript)
+    
+    # Create quiz
+    quiz = Quiz.objects.create(
+        owner=user,
+        title=quiz_data["title"],
+        description=quiz_data["description"],
+        video_url=video_url
+    )
+    
+    # Create questions
+    create_questions_for_quiz(quiz, quiz_data["questions"])
+    
+    return quiz
+
+
+def create_questions_for_quiz(quiz, questions_data):
+    """Create Question objects for the given quiz."""
+    for question_data in questions_data:
+        Question.objects.create(
+            quiz=quiz,
+            question_title=question_data["question_title"],
+            question_options=question_data["question_options"],
+            answer=question_data["answer"]
+        )
+
