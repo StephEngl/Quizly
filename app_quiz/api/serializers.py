@@ -8,6 +8,11 @@ class QuestionSerializer(serializers.ModelSerializer):
     Serializes question data including title, options, and correct answer
     for API responses when retrieving quiz information.
     """
+    question_options = serializers.ListField(
+        child=serializers.CharField(), 
+        help_text="List of answer options for the question"
+    )
+    
     class Meta:
         model = Question
         fields = ['id', 'question_title', 'question_options', 'answer']
@@ -32,6 +37,11 @@ class CreateQuizQuestionSerializer(serializers.ModelSerializer):
     Extended question serializer that includes timestamp information
     for newly created quiz questions.
     """
+    question_options = serializers.ListField(
+        child=serializers.CharField(), 
+        help_text="List of answer options for the question"
+    )
+    
     class Meta:
         model = Question
         fields = ['id', 'question_title', 'question_options', 'answer', 'created_at', 'updated_at']

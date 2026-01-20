@@ -15,7 +15,7 @@ from .utils import download_and_transcribe, check_for_duplicate_quiz, create_qui
     tags=['Quiz Management'],
     description="Create a quiz from a youtube video URL.",
     responses={
-        201: QuizSerializer,
+        201: CreateQuizSerializer,
         400: OpenApiResponse(description="Bad Request - Invalid URL or processing error"),
         401: OpenApiResponse(description="Unauthorized - Authentication credentials were not provided"),
     }
@@ -43,13 +43,8 @@ class CreateQuizFromUrlView(APIView):
         video_url = serializer.validated_data["url"]
 
         try:
-            # 1) Download and transcribe video
             transcript, video_title = download_and_transcribe(video_url)
-            
-            # 2) Check for existing quiz
             check_for_duplicate_quiz(request.user, video_url, video_title)
-            
-            # 3) Generate and create quiz
             quiz = create_quiz_from_transcript(request.user, transcript, video_url)
             
             return Response(CreateQuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
