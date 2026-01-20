@@ -37,6 +37,7 @@ class QuizCreateTests(APITestCase):
             ]
         }
 
+
     def setup_mocks(self, mock_download_transcribe, mock_generate_quiz):
         """Helper method to configure standard mock behavior"""
         mock_download_transcribe.return_value = (
@@ -44,13 +45,16 @@ class QuizCreateTests(APITestCase):
         mock_generate_quiz.return_value = self.mock_quiz_data
         return mock_download_transcribe, mock_generate_quiz
 
+
     def create_user(self):
         return User.objects.create_user(**self.user_data)
+
 
     def authenticate_user(self):
         user = self.create_user()
         self.client.force_authenticate(user=user)
         return user
+
 
     def get_quiz_data(self):
         return {'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}
@@ -83,11 +87,13 @@ class QuizCreateTests(APITestCase):
         mock_download_transcribe.assert_called_once_with(quiz_data['url'])
         mock_generate_quiz.assert_called_once_with(self.mock_transcript)
 
+
     def test_create_quiz_unauthorized_401(self):
         """Test creating quiz without authentication returns 401"""
         quiz_data = self.get_quiz_data()
         response = self.client.post(self.create_quiz_url, quiz_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
 
     def test_create_quiz_missing_url_400(self):
         """Test creating quiz without URL returns 400"""
@@ -95,6 +101,7 @@ class QuizCreateTests(APITestCase):
         response = self.client.post(self.create_quiz_url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('url', response.data)
+
 
     def test_create_quiz_invalid_url_400(self):
         """Test creating quiz with invalid URL returns 400"""
@@ -129,6 +136,7 @@ class QuizCreateTests(APITestCase):
             for field in required_question_fields:
                 self.assertIn(field, question, f"Field '{field}' missing in question")
 
+
     @patch('app_quiz.api.utils.generate_quiz_from_transcript')
     @patch('app_quiz.api.views.download_and_transcribe')
     def test_response_field_types(self, mock_download_transcribe, mock_generate_quiz):
@@ -160,6 +168,7 @@ class QuizCreateTests(APITestCase):
             
             # Question options should have 4 options as shown in API spec
             self.assertEqual(len(question['question_options']), 4)
+
 
     @patch('app_quiz.api.utils.generate_quiz_from_transcript')
     @patch('app_quiz.api.views.download_and_transcribe')

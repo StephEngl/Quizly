@@ -200,12 +200,13 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['title'], 'Updated Python Quiz')
-        self.assertEqual(response.data['description'], self.quiz1.description)  # Unchanged
+        self.assertEqual(response.data['description'], self.quiz1.description)
         
         # Verify in database
         self.quiz1.refresh_from_db()
         self.assertEqual(self.quiz1.title, 'Updated Python Quiz')
-    
+
+ 
     def test_partial_update_description(self):
         """Test updating only the description"""
         self.authenticate_user(self.user1)
@@ -218,7 +219,8 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['description'], 'Updated description about Python')
         self.assertEqual(response.data['title'], self.quiz1.title)  # Unchanged
-    
+
+
     def test_partial_update_multiple_fields(self):
         """Test updating multiple fields at once"""
         self.authenticate_user(self.user1)
@@ -234,7 +236,8 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['title'], 'New Title')
         self.assertEqual(response.data['description'], 'New Description')
-    
+
+
     def test_update_unauthenticated(self):
         """Test updating quiz without authentication"""
         url = reverse('quiz-detail', kwargs={'pk': self.quiz1.pk})
@@ -243,7 +246,8 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         response = self.client.patch(url, update_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-    
+
+
     def test_update_other_users_quiz_returns_404(self):
         """Test that user gets 404 when trying to update other user's quiz (information hiding)"""
         self.authenticate_user(self.user1)
@@ -254,7 +258,8 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         
         # 404 instead of 403 prevents quiz ID enumeration attacks
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-    
+
+
     def test_update_nonexistent_quiz(self):
         """Test updating non-existent quiz"""
         self.authenticate_user(self.user1)
@@ -264,7 +269,8 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         response = self.client.patch(url, update_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-    
+
+
     def test_update_with_invalid_data(self):
         """Test updating with invalid data"""
         self.authenticate_user(self.user1)
@@ -276,19 +282,18 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         response = self.client.patch(url, update_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-    
+
+
     def test_update_readonly_fields_ignored(self):
         """Test that read-only fields are ignored during update"""
         self.authenticate_user(self.user1)
         url = reverse('quiz-detail', kwargs={'pk': self.quiz1.pk})
-        
-        original_created_at = self.quiz1.created_at
-        
+
         update_data = {
             'title': 'New Title',
-            'id': 9999,  # Should be ignored
-            'created_at': '2020-01-01T00:00:00.000Z',  # Should be ignored
-            'questions': []  # Should be ignored
+            'id': 9999,
+            'created_at': '2020-01-01T00:00:00.000Z',
+            'questions': []
         }
         
         response = self.client.patch(url, update_data, format='json')
@@ -297,7 +302,7 @@ class QuizUpdateTests(BaseQuizViewSetTest):
         self.assertEqual(response.data['title'], 'New Title')
         self.assertNotEqual(response.data['id'], 9999)
         self.assertNotEqual(response.data['created_at'], '2020-01-01T00:00:00.000Z')
-        self.assertEqual(len(response.data['questions']), 2)  # Original questions preserved
+        self.assertEqual(len(response.data['questions']), 2)
 
 
 class QuizDestroyTests(BaseQuizViewSetTest):
