@@ -144,7 +144,7 @@ python manage.py test
 python manage.py test app_quiz
 python manage.py test app_auth
 
-# Run with coverage (if coverage is installed)
+# Run with coverage analysis
 coverage run --source='.' manage.py test
 coverage report
 ```
