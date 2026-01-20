@@ -9,7 +9,7 @@ from app_auth.api.views import CookieJWTAuthentication
 from ..models import Quiz, Question
 from .permissions import IsQuizOwner
 from .serializers import QuizSerializer, CreateQuizFromUrlSerializer, CreateQuizSerializer
-from .utils import download_and_transcribe, generate_quiz_from_transcript
+from .utils import download_and_transcribe, check_for_duplicate_quiz, create_quiz_from_transcript
 
 @extend_schema(
     tags=['Quiz Management'],
@@ -21,39 +21,37 @@ from .utils import download_and_transcribe, generate_quiz_from_transcript
     }
 )
 class CreateQuizFromUrlView(APIView):
+    """API view to create a quiz from a YouTube video URL.
+    
+    Downloads video audio, transcribes it, checks for duplicates,
+    and generates quiz using Gemini AI.
+    """
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
+        """Create a new quiz from YouTube video URL.
+            
+        Returns:
+            Response: Created quiz data or validation error.
+            
+        Raises:
+            ValidationError: If URL invalid or processing fails.
+        """
         serializer = CreateQuizFromUrlSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video_url = serializer.validated_data["url"]
 
         try:
-            # Download audio and transcribe with Whisper (yt-dlp handles URL normalization)
+            # 1) Download and transcribe video
             transcript, video_title = download_and_transcribe(video_url)
             
-            # 2) Generate quiz from transcript using Gemini
-            quiz_data = generate_quiz_from_transcript(transcript)
+            # 2) Check for existing quiz
+            check_for_duplicate_quiz(request.user, video_url, video_title)
             
-            # 3) Create Quiz in database
-            quiz = Quiz.objects.create(
-                owner=request.user,
-                title=quiz_data["title"],
-                description=quiz_data["description"],
-                video_url=video_url
-            )
+            # 3) Generate and create quiz
+            quiz = create_quiz_from_transcript(request.user, transcript, video_url)
             
-            # 4) Create Questions in database
-            for question_data in quiz_data["questions"]:
-                Question.objects.create(
-                    quiz=quiz,
-                    question_title=question_data["question_title"],
-                    question_options=question_data["question_options"],
-                    answer=question_data["answer"]
-                )
-            
-            # 5) Return complete quiz with questions
             return Response(CreateQuizSerializer(quiz).data, status=status.HTTP_201_CREATED)
             
         except RuntimeError as error:
@@ -65,19 +63,30 @@ class CreateQuizFromUrlView(APIView):
     description="Manage quizzes created by users.",
 )
 class QuizViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing user's quiz collection.
+    
+    Provides CRUD operations for quizzes. Users can only
+    access their own quizzes.
+    """
     serializer_class = QuizSerializer
     permission_classes = [IsAuthenticated, IsQuizOwner]
     authentication_classes = [CookieJWTAuthentication]
     http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        """Only return quizzes owned by the current user"""
+        """Return quizzes owned by the authenticated user.
+        
+        Returns:
+            QuerySet: User's quizzes with prefetched questions.
+        """
         return Quiz.objects.filter(owner=self.request.user).prefetch_related("questions")
 
     @extend_schema(exclude=True)
     def create(self, request, *args, **kwargs):
-        """
-        Disable CREATE detail endpoint.
+        """Disable quiz creation via this endpoint.
+        
+        Raises:
+            MethodNotAllowed: Always, as creation is disabled.
         """
         return MethodNotAllowed("CREATE")
     
@@ -88,6 +97,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         }
     )
     def list(self, request, *args, **kwargs):
+        """List all quizzes owned by the user."""
         return super().list(request, *args, **kwargs)
     
     @extend_schema(
@@ -99,6 +109,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         }
     )
     def retrieve(self, request, *args, **kwargs):
+        """Retrieve a specific quiz by ID."""
         return super().retrieve(request, *args, **kwargs)
     
     @extend_schema(
@@ -111,6 +122,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         }
     )
     def partial_update(self, request, *args, **kwargs):
+        """Partially update a quiz."""
         return super().partial_update(request, *args, **kwargs)
     
 
@@ -123,4 +135,5 @@ class QuizViewSet(viewsets.ModelViewSet):
         }
     )
     def destroy(self, request, *args, **kwargs):
+        """Delete a quiz permanently."""
         return super().destroy(request, *args, **kwargs)
