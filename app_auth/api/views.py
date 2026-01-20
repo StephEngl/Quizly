@@ -61,7 +61,7 @@ class RegistrationView(APIView):
         401: OpenApiResponse(description="Unauthorized - Invalid credentials"),
     }
 )
-class CookieTokenObtainPairView(TokenObtainPairView):
+class LoginView(TokenObtainPairView):
     """API view for user authentication with cookie-based tokens.
     
     Validates user credentials and sets JWT tokens in secure
@@ -75,42 +75,39 @@ class CookieTokenObtainPairView(TokenObtainPairView):
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            refresh = validated_data['refresh']
-            access = validated_data['access']
-
-            user = serializer.user
-
-            user_data = {
-                "id": user.pk,
-                "username": user.username,
-                "email": user.email,
-            }
-
-            data = {
-                'detail': 'Login successfully!',
-                'user': user_data
-            }
-
-            response = Response(data, status=status.HTTP_200_OK)
-            response.set_cookie(
-                key='refresh_token',
-                value=str(refresh),
-                httponly=True,
-                secure=False,
-                samesite='Lax',
-            )
-
-            response.set_cookie(
-                key='access_token',
-                value=str(access),
-                httponly=True,
-                secure=False,
-                samesite='Lax',
-            )
-
+            user_data = self._create_user_data(serializer.user)
+            response = self._create_success_response(user_data)
+            self._set_auth_cookies(response, validated_data['refresh'], validated_data['access'])
             return response
         else:
             return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
+
+    def _create_user_data(self, user):
+        """Create user data dictionary for response."""
+        return {
+            "id": user.pk,
+            "username": user.username,
+            "email": user.email,
+        }
+
+    def _create_success_response(self, user_data):
+        """Create successful login response with user data."""
+        data = {
+            'detail': 'Login successfully!',
+            'user': user_data
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+    def _set_auth_cookies(self, response, refresh_token, access_token):
+        """Set JWT tokens as HttpOnly cookies on response."""
+        cookie_options = {
+            'httponly': True,
+            'secure': False,
+            'samesite': 'Lax',
+        }
+        
+        response.set_cookie(key='refresh_token', value=str(refresh_token), **cookie_options)
+        response.set_cookie(key='access_token', value=str(access_token), **cookie_options)
 
 
 @extend_schema(
@@ -127,28 +124,52 @@ class CookieTokenRefreshView(TokenRefreshView):
     Uses refresh token from HttpOnly cookies to generate new
     access token when the current one expires.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        data = {}
-        refresh_token = request.COOKIES.get("refresh_token")
-
+        refresh_token = self._get_refresh_token_from_cookies(request)
+        
         if refresh_token is None:
             return Response({"error": "Refresh token not provided."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        access_token = self._validate_refresh_token(refresh_token)
+        
+        if access_token is None:
+            return Response({"error": "Refresh token is invalid"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        response = self._create_refresh_response(access_token)
+        self._set_access_cookie(response, access_token)
+        return response
 
+    def _get_refresh_token_from_cookies(self, request):
+        """Extract refresh token from HttpOnly cookies."""
+        refresh_token = request.COOKIES.get("refresh_token")
+        if refresh_token is None:
+            return None
+        return refresh_token
+
+    def _validate_refresh_token(self, refresh_token):
+        """Validate refresh token and return new access token."""
+        if refresh_token is None:
+            return None
+        
         serializer = self.get_serializer(data={"refresh": refresh_token})
         try:
             serializer.is_valid(raise_exception=True)
+            return serializer.validated_data.get("access")
         except:
-            return Response({"error": "Refresh token is invalid"}, status=status.HTTP_401_UNAUTHORIZED)
+            return None
 
-        access_token = serializer.validated_data.get("access")
+    def _create_refresh_response(self, access_token):
+        """Create successful token refresh response."""
         data = {
             "detail": "Token refreshed",
             "access": access_token
         }
+        return Response(data, status=status.HTTP_200_OK)
 
-        response = Response(data, status=status.HTTP_200_OK)
+    def _set_access_cookie(self, response, access_token):
+        """Set new access token as HttpOnly cookie."""
         response.set_cookie(
             key='access_token',
             value=access_token,
@@ -156,8 +177,6 @@ class CookieTokenRefreshView(TokenRefreshView):
             secure=False,
             samesite='Lax',
         )
-
-        return response
 
 
 @extend_schema(
