@@ -43,6 +43,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         try:
             data = super().validate(attrs)
+            data['user'] = self.get_user_data()
+            data['detail'] = 'Login successfully!'
             return data
         except Exception:
             raise serializers.ValidationError("Incorrect username or password.")
+        
+    def get_user_data(self):
+        """Get formatted user data for the response."""
+        return {
+            "id": self.user.pk,
+            "username": self.user.username,
+            "email": self.user.email,
+        }

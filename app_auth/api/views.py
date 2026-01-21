@@ -75,28 +75,11 @@ class LoginView(TokenObtainPairView):
 
         if serializer.is_valid():
             validated_data = serializer.validated_data
-            user_data = self._create_user_data(serializer.user)
-            response = self._create_success_response(user_data)
+            response = Response(validated_data, status=status.HTTP_200_OK)
             self._set_auth_cookies(response, validated_data['refresh'], validated_data['access'])
             return response
         else:
             return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
-
-    def _create_user_data(self, user):
-        """Create user data dictionary for response."""
-        return {
-            "id": user.pk,
-            "username": user.username,
-            "email": user.email,
-        }
-
-    def _create_success_response(self, user_data):
-        """Create successful login response with user data."""
-        data = {
-            'detail': 'Login successfully!',
-            'user': user_data
-        }
-        return Response(data, status=status.HTTP_200_OK)
 
     def _set_auth_cookies(self, response, refresh_token, access_token):
         """Set JWT tokens as HttpOnly cookies on response."""
