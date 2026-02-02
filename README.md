@@ -94,10 +94,10 @@ These endpoints are integrated using drf-spectacular and configured in the Djang
 
 ## 📁 Project Structure
 
-- **core** – Project configuration, global settings, and root URLs
-- **app_auth** – Handles user authentication, registration, and JWT token management
-- **app_quiz** – Manages quiz creation from YouTube videos, CRUD operations, and AI generation
-- **media** – Stores temporary audio files during processing
+- [`core`](core) – Project configuration, global settings, and root URLs
+- [`app_auth`](app_auth) – Handles user authentication, registration, and JWT token management
+- [`app_quiz`](app_quiz) – Manages quiz creation from YouTube videos, CRUD operations, and AI generation
+- [`media`](media) – Stores temporary audio files during processing
 
 ## 🔗 API Endpoints
 
