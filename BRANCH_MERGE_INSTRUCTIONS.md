@@ -2,57 +2,60 @@
 
 ## Aktueller Status ✅
 
-Die LICENSE-Datei wurde erfolgreich zum Repository hinzugefügt. Beide Branches (`copilot/add-license-to-main` und `main`) enthalten jetzt die gleichen Änderungen.
+Die LICENSE-Datei (MIT License) wurde erfolgreich zum Repository hinzugefügt!
 
-## Nächste Schritte
+## Was wurde gemacht?
 
-Um nur noch den `main` Branch zu haben, folgen Sie diesen Schritten:
+- ✅ LICENSE-Datei hinzugefügt (MIT License wie im README erwähnt)
+- ✅ Änderungen sind im Branch `copilot/add-license-to-main`
 
-### Option 1: Main Branch als Standard festlegen (Empfohlen)
+## Wie bekomme ich nur den Main Branch?
 
-1. **Gehen Sie zu Ihrem GitHub Repository**: https://github.com/StephEngl/Quizly
+Sie haben **3 einfache Optionen**:
 
-2. **Öffnen Sie die Einstellungen**:
-   - Klicken Sie auf "Settings" (Einstellungen)
-   - Navigieren Sie zu "Branches" im linken Menü
+### Option 1: Branch umbenennen (Einfachste Lösung) ⭐
 
-3. **Ändern Sie den Default Branch**:
-   - Bei "Default branch" klicken Sie auf das Stift-Symbol
-   - Wählen Sie `main` aus dem Dropdown
-   - Klicken Sie auf "Update"
-   - Bestätigen Sie die Änderung
+Da Sie nur diesen einen Branch haben, können Sie ihn einfach auf GitHub umbenennen:
 
-4. **Löschen Sie den Copilot Branch** (optional):
-   ```bash
-   git branch -d copilot/add-license-to-main
-   git push origin --delete copilot/add-license-to-main
-   ```
+1. Gehen Sie zu: https://github.com/StephEngl/Quizly
+2. Klicken Sie auf den Branch-Selector (wo "copilot/add-license-to-main" steht)
+3. Klicken Sie auf "View all branches"
+4. Bei `copilot/add-license-to-main` klicken Sie auf das Stift-Symbol
+5. Benennen Sie um zu `main`
+6. Fertig! ✅
 
-### Option 2: Pull Request erstellen
+### Option 2: Branch über GitHub Settings umbenennen
 
-1. Erstellen Sie einen Pull Request von `copilot/add-license-to-main` nach `main`
-2. Mergen Sie den Pull Request
-3. Löschen Sie den `copilot/add-license-to-main` Branch nach dem Merge
+1. Gehen Sie zu: https://github.com/StephEngl/Quizly/settings
+2. Navigieren Sie zu "Branches"
+3. Klicken Sie bei "Default branch" auf das Stift-Symbol
+4. Wenn `main` nicht existiert, erstellen Sie ihn:
+   - Gehen Sie zurück zu Code
+   - Klicken Sie auf den Branch-Selector
+   - Tippen Sie "main" ein und klicken Sie "Create branch: main"
+5. Dann setzen Sie `main` als Default
 
-### Was wurde geändert?
+### Option 3: Lokaler Git Command
 
-- ✅ LICENSE-Datei (MIT License) hinzugefügt
-- ✅ Main Branch erstellt mit allen Änderungen vom Copilot Branch
-- ✅ Beide Branches sind auf dem gleichen Stand
+Wenn Sie das Repository lokal geklont haben:
 
-### Wichtiger Hinweis
-
-Da der `main` Branch lokal erstellt wurde, müssen Sie ihn noch auf GitHub pushen. Sie können dies auf zwei Arten tun:
-
-**Lokaler Push (wenn Sie das Repository lokal geklont haben)**:
 ```bash
-git checkout main
+# Branch umbenennen
+git branch -m copilot/add-license-to-main main
+
+# Neuen Branch hochladen
 git push -u origin main
+
+# Alten Branch löschen
+git push origin --delete copilot/add-license-to-main
 ```
 
-**Oder über die GitHub Weboberfläche**:
-Der `main` Branch wird beim Merge des Pull Requests automatisch auf GitHub erstellt.
+## Zusammenfassung
+
+Der schnellste Weg: **Option 1** - Einfach den Branch auf GitHub umbenennen!
+
+Danach haben Sie nur noch einen `main` Branch mit der LICENSE-Datei. 🎉
 
 ---
 
-Falls Sie Fragen haben oder Hilfe benötigen, lassen Sie es mich wissen!
+Diese Datei können Sie nach dem Umbenennen löschen, sie dient nur als Anleitung.
