@@ -1,5 +1,8 @@
-# Quizly Django Project
-
+<div style="display: flex; align-items: center;">
+  <img src="assets/logo.png" alt="Quizly Logo" style="height: 60px; margin-right: 16px;">
+  <h1 style="margin: 0;">Quizly Django Project</h1>
+</div>
+<div style="height:16px"></div>
 Quizly provides an intelligent quiz generation platform that transforms YouTube videos into interactive learning experiences. Built with Python and powered by AI, Quizly offers an innovative solution for creating educational content from video transcripts. Key features include AI-powered quiz generation using Gemini AI, secure user authentication, comprehensive quiz management, and a robust REST API for seamless integration.
 
 ## ✨ Features
